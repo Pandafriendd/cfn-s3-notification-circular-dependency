@@ -1,0 +1,66 @@
+Resources:
+  MyFuncServiceRole54065130:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: CdkCfns3NotificationConfigurationStack/MyFunc/ServiceRole/Resource
+  MyFunc8A243A2C:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: boom
+      Role:
+        Fn::GetAtt:
+          - MyFuncServiceRole54065130
+          - Arn
+      Handler: index.handler
+      Runtime: nodejs12.x
+    DependsOn:
+      - MyFuncServiceRole54065130
+    Metadata:
+      aws:cdk:path: CdkCfns3NotificationConfigurationStack/MyFunc/Resource
+  S3Bucket2:
+    # Circular dependency between resources: [LambdaPermission, S3Bucket2]; 
+    # if not included DependsOn, "Unable to validate the following destination configurations (Service: Amazon S3; Status Code: 400; Error Code: InvalidArgument; Request ID: A0FF85B309ED3CDD; S3 Extended Request ID: XZBYaw8JMGBvPCHWOcZLlw4geEkTL/ADwyeJSJyK/m8CpZdhrSybMNFR3I3kcY7a3+nb+Fw2fmw=; Proxy: null)"
+    DependsOn:    
+      - LambdaPermission
+    Type: AWS::S3::Bucket
+    Properties:
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function:
+              Fn::GetAtt:
+                - MyFunc8A243A2C
+                - Arn
+    Metadata:
+      aws:cdk:path: CdkCfns3NotificationConfigurationStack/S3Bucket2
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - MyFunc8A243A2C
+          - Arn
+      Principal: s3.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - S3Bucket2
+          - Arn
+    Metadata:
+      aws:cdk:path: CdkCfns3NotificationConfigurationStack/LambdaPermission
+  
